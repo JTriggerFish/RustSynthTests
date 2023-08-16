@@ -1,3 +1,6 @@
+mod blocks;
+mod engine;
+
 use rand::Rng;
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::f64::consts::PI;
@@ -95,14 +98,15 @@ impl AudioCallback for SineWaveAudioCallback {
 fn main() {
     let sdl_context = sdl2::init().unwrap();
     let audio_subsystem = sdl_context.audio().unwrap();
+    let sample_rate = 48_000;
 
     let desired_spec = AudioSpecDesired {
-        freq: Some(48000),
+        freq: Some(sample_rate),
         channels: Some(2),
         samples: Some(512),
     };
 
-    let sample_rate = Arc::new(44100.0);
+    let sample_rate = Arc::new(sample_rate as f64);
 
     let sines = Mutex::new(vec![]);
 
