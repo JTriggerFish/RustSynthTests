@@ -28,7 +28,7 @@ fn main() {
 
     let audio_device: AudioDevice<AudioGraphCallback> = audio_subsystem
         .open_playback(None, &desired_spec, |spec| {
-            let sample_rate = spec.freq as f64;
+            let sample_rate = spec.freq as f32;
 
             let graph = StereoOutput::new(vec![]);
             graph.add_naive_sawtooth(440.0);
@@ -40,7 +40,7 @@ fn main() {
         })
         .unwrap();
 
-    device.resume();
+    audio_device.resume();
 
     // The sound plays in a separate thread. This sleep is only here so you can hear the sound before the program exits.
     std::thread::sleep(std::time::Duration::from_secs(4));

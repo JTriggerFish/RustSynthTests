@@ -62,8 +62,8 @@ impl Block for StereoOutput {
     }
 }
 pub struct AudioGraphCallback {
-    graph: Mutex<StereoOutput>,
-    sample_rate: f32,
+    pub graph: Mutex<StereoOutput>,
+    pub sample_rate: f32,
 }
 
 impl AudioCallback for AudioGraphCallback {
@@ -71,9 +71,6 @@ impl AudioCallback for AudioGraphCallback {
 
     fn callback(&mut self, output_buffer: &mut [f32]) {
         for (_i, output) in output_buffer.chunks_exact_mut(2).enumerate() {
-            let mut sample_left: f32 = 0.0;
-            let mut sample_right: f32 = 0.0;
-
             let mut graph_guard = self.graph.lock().unwrap();
             let result = graph_guard.process();
             output[0] = result[0];
