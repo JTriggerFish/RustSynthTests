@@ -38,7 +38,7 @@ pub struct StereoOutput {
 }
 
 impl StereoOutput {
-    fn new(blocks: Vec<RefSampleBlock2>) -> StereoOutput {
+    pub fn new(blocks: Vec<RefSampleBlock2>) -> StereoOutput {
         StereoOutput {
             blocks,
             output: SampleVec2::new(0.0, 0.0),
