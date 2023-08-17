@@ -79,7 +79,7 @@ impl AudioCallback for AudioGraphCallback {
     }
 }
 impl AudioGraphCallback {
-    fn add_sine(
+    pub fn add_sine(
         &mut self,
         frequency: f32,
         amplitude_dB: f32,
@@ -94,7 +94,7 @@ impl AudioGraphCallback {
             Box::new(MonoToStereoMix::new(sine_block, amplitude_dB, panning));
         graph_guard.blocks.push(mono_to_stereo_block);
     }
-    fn add_naive_sawtooth(&mut self, frequency: f32, volume_db: f32, panning: f32) {
+    pub fn add_naive_sawtooth(&mut self, frequency: f32, volume_db: f32, panning: f32) {
         let volume = 10f32.powf(volume_db / 20f32);
         let mut n = 1;
 
@@ -106,7 +106,7 @@ impl AudioGraphCallback {
         }
     }
 
-    fn supersaw(
+    pub fn supersaw(
         &mut self,
         center_frequency: f32,
         variance_hz: f32,

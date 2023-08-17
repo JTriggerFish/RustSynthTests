@@ -31,12 +31,13 @@ fn main() {
             let sample_rate = spec.freq as f32;
 
             let graph = StereoOutput::new(vec![]);
-            graph.add_naive_sawtooth(440.0);
 
-            AudioGraphCallback {
+            let mut engine = AudioGraphCallback {
                 graph: Mutex::new(graph),
                 sample_rate,
-            }
+            };
+            engine.add_naive_sawtooth(440.0f32, 0.0, 0.0);
+            engine
         })
         .unwrap();
 
