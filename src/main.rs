@@ -35,6 +35,7 @@ fn main() {
         //(*graph).add_sine(440.0, 0.0, 0.0);
         graph.add_sine(110.0, -30.0, -1.0);
         graph.add_sine(110.5, -30.0, 1.0);
+        graph.add_supersaw(440.0, 2.0, 5, -30.0)
     }
 
     //let mut rhai_interpreter = Engine::new();

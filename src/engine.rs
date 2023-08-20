@@ -139,6 +139,6 @@ impl AudioGraph {
             let saw_panning = 2.0 * rng.gen::<f32>() - 1.0;
             self.add_naive_sawtooth(frequency, saw_volume, saw_panning);
         }
-        //println!("total number of sines: {}", sines_guard.len());
+        println!("total number of sines: {}", self.output.blocks.len());
     }
 }
