@@ -75,11 +75,11 @@ impl Block for StereoOutput {
     }
 }
 pub struct AudioGraph {
-    pub output: Arc<Mutex<StereoOutput>>,
+    pub output: Box<StereoOutput>,
     pub sample_rate: f32,
 }
 pub struct AudioGraphCallback {
-    pub graph: AudioGraph,
+    pub graph: Arc<Mutex<AudioGraph>>,
 }
 
 impl AudioCallback for AudioGraphCallback {
@@ -87,8 +87,8 @@ impl AudioCallback for AudioGraphCallback {
 
     fn callback(&mut self, output_buffer: &mut [f32]) {
         for (_i, output) in output_buffer.chunks_exact_mut(2).enumerate() {
-            let mut graph_guard = self.graph.output.lock().unwrap();
-            let result = graph_guard.process();
+            let mut graph_guard = self.graph.lock().unwrap();
+            let result = graph_guard.output.process();
             output[0] = result[0];
             output[1] = result[1];
         }
@@ -96,17 +96,21 @@ impl AudioCallback for AudioGraphCallback {
 }
 impl AudioGraph {
     pub fn add_sine(&mut self, frequency: f32, amplitude_db: f32, panning: f32) {
-        let mut graph_guard = self.output.lock().unwrap();
         // Create your sine generator block here, assuming you have a block named `SineOscillator`
         // and it can be constructed with a given frequency.
-        let sine_block: Block1DRef =
-            Box::new(SineOsc::new_fixed(frequency, 1.0f32, self.sample_rate));
-        let mono_to_stereo_block = Box::new(MonoToStereoMix::new_fixed(
-            sine_block,
-            amplitude_db,
-            panning,
-        ));
-        graph_guard.blocks.push(mono_to_stereo_block);
+        let sine_block: Block1DRef = Box::new(
+            SineOsc::<Phasor<SampleConstant>, SampleConstant>::new_fixed(
+                frequency,
+                1.0f32,
+                self.sample_rate,
+            ),
+        );
+        let mono_to_stereo_block = Box::new(MonoToStereoMix::<
+            DynBlock<Sample>,
+            SampleConstant,
+            SampleConstant,
+        >::new_fixed(sine_block, amplitude_db, panning));
+        self.output.blocks.push(mono_to_stereo_block);
     }
     pub fn add_naive_sawtooth(&mut self, frequency: f32, volume_db: f32, panning: f32) {
         let volume = 10f32.powf(volume_db / 20f32);
