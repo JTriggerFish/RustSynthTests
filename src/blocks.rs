@@ -1,4 +1,4 @@
-use crate::engine::{Block, RefSampleBlock2, Sample, SampleVec2};
+use crate::engine::{Block, Block1DRef, Block2DRef, DynBlock, Sample, SampleConstant, SampleVec2};
 use nalgebra::{vector, SimdPartialOrd};
 use std::f32::consts::PI;
 
@@ -8,10 +8,10 @@ pub struct Phasor<F: Block<SampleOutput = Sample>> {
     sample_freq: Sample,
 }
 impl<F: Block<SampleOutput = Sample>> Phasor<F> {
-    fn new(freq: F, phase: Sample, sample_freq: Sample) -> Self {
-        Self {
+    pub fn new(freq: F, sample_freq: Sample) -> Phasor<F> {
+        Phasor {
             freq,
-            phase,
+            phase: 0.0,
             sample_freq,
         }
     }
@@ -42,6 +42,22 @@ impl<P: Block<SampleOutput = Sample>, A: Block<SampleOutput = Sample>> Block for
         return a * p.sin();
     }
 }
+impl<P: Block<SampleOutput = Sample>, A: Block<SampleOutput = Sample>> SineOsc<P, A> {
+    pub fn new(phase: P, amplitude: A) -> SineOsc<P, A> {
+        SineOsc { phase, amplitude }
+    }
+    pub fn new_fixed(
+        frequency: Sample,
+        amplitude: Sample,
+        sample_freq: Sample,
+    ) -> SineOsc<Phasor<SampleConstant>, SampleConstant> {
+        let phase = Phasor::new(SampleConstant { value: frequency }, sample_freq);
+        SineOsc {
+            phase,
+            amplitude: SampleConstant { value: amplitude },
+        }
+    }
+}
 
 pub struct MonoToStereoMix<
     I: Block<SampleOutput = Sample>,
@@ -66,9 +82,35 @@ impl<
         let p = self.panning.process();
         let left = ((1.0 - p) / 2.0).sqrt() * x * a;
         let right = ((1.0 + p) / 2.0).sqrt() * x * a;
-        // Here we're taking the left channel for simplicity.
-        // In a stereo setup, we'd need to handle both channels appropriately.
         let ret = vector![left, right];
         ret
+    }
+}
+
+impl<
+        I: Block<SampleOutput = Sample>,
+        A: Block<SampleOutput = Sample>,
+        P: Block<SampleOutput = Sample>,
+    > MonoToStereoMix<I, A, P>
+{
+    pub fn new(input: I, amplitude_db: A, panning: P) -> MonoToStereoMix<I, A, P> {
+        MonoToStereoMix {
+            input,
+            amplitude_db,
+            panning,
+        }
+    }
+    pub fn new_fixed(
+        input: Block1DRef,
+        amplitude_db: Sample,
+        panning: Sample,
+    ) -> MonoToStereoMix<DynBlock<Sample>, SampleConstant, SampleConstant> {
+        MonoToStereoMix {
+            input: DynBlock { block: input },
+            amplitude_db: SampleConstant {
+                value: amplitude_db,
+            },
+            panning: SampleConstant { value: panning },
+        }
     }
 }

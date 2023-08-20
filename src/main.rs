@@ -3,17 +3,9 @@ mod engine;
 
 use rand::Rng;
 use sdl2::audio::{AudioCallback, AudioDevice, AudioSpecDesired};
-use std::f64::consts::PI;
 use std::sync::{Arc, Mutex};
 
 use engine::*;
-
-struct SineWave {
-    frequency: f64,
-    phase: f64,
-    volume: f64,
-    panning: f64,
-}
 
 fn main() {
     let sdl_context = sdl2::init().unwrap();
@@ -26,22 +18,20 @@ fn main() {
         samples: Some(512),
     };
 
-    let audio_device: AudioDevice<AudioGraphCallback> = audio_subsystem
-        .open_playback(None, &desired_spec, |spec| {
-            let sample_rate = spec.freq as f32;
-
-            let graph = StereoOutput::new(vec![]);
-
-            let mut engine = AudioGraphCallback {
-                graph: Mutex::new(graph),
-                sample_rate,
-            };
-            engine.add_naive_sawtooth(440.0f32, 0.0, 0.0);
-            engine
-        })
+    let mut graph = AudioGraph {
+        output: Arc::new(Mutex::new(StereoOutput::new(vec![]))),
+        sample_rate: sample_rate as f32,
+    };
+    let audio_device = audio_subsystem
+        .open_playback(None, &desired_spec, |spec| AudioGraphCallback { graph })
         .unwrap();
 
     audio_device.resume();
+    {
+        //let mut graph = audio_graph.lock().unwrap();
+        //(*graph).add_sine(440.0, 0.0, 0.0);
+        graph.add_sine(440.0, 0.0, 0.0);
+    }
 
     // The sound plays in a separate thread. This sleep is only here so you can hear the sound before the program exits.
     std::thread::sleep(std::time::Duration::from_secs(4));

@@ -1,6 +1,8 @@
 use crate::blocks::*;
 use nalgebra::SVector;
 use nalgebra::{vector, SimdPartialOrd};
+use optargs::optfn;
+use rand::seq::index::sample;
 use rand::Rng;
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::boxed::Box;
@@ -16,13 +18,13 @@ pub trait Block {
 
     fn process(&mut self) -> Self::SampleOutput;
 }
-pub type RefSampleBlock = Box<dyn Block<SampleOutput = Sample> + Send>;
-pub type RefSampleBlock2 = Box<dyn Block<SampleOutput = SampleVec2> + Send>;
-pub type RefSampleBlock4 = Box<dyn Block<SampleOutput = SampleVec4> + Send>;
-pub type RefSampleBlock8 = Box<dyn Block<SampleOutput = SampleVec8> + Send>;
+pub type Block1DRef = Box<dyn Block<SampleOutput = Sample> + Send>;
+pub type Block2DRef = Box<dyn Block<SampleOutput = SampleVec2> + Send>;
+pub type Block4DRef = Box<dyn Block<SampleOutput = SampleVec4> + Send>;
+pub type Block8DRef = Box<dyn Block<SampleOutput = SampleVec8> + Send>;
 
 pub struct SampleConstant {
-    value: Sample,
+    pub value: Sample,
 }
 
 impl Block for SampleConstant {
@@ -32,13 +34,24 @@ impl Block for SampleConstant {
     }
 }
 
+pub struct DynBlock<T> {
+    pub block: Box<dyn Block<SampleOutput = T> + Send>,
+}
+
+impl<T> Block for DynBlock<T> {
+    type SampleOutput = T;
+    fn process(&mut self) -> T {
+        return self.block.process();
+    }
+}
+
 pub struct StereoOutput {
-    pub blocks: Vec<RefSampleBlock2>,
+    pub blocks: Vec<Block2DRef>,
     output: SampleVec2,
 }
 
 impl StereoOutput {
-    pub fn new(blocks: Vec<RefSampleBlock2>) -> StereoOutput {
+    pub fn new(blocks: Vec<Block2DRef>) -> StereoOutput {
         StereoOutput {
             blocks,
             output: SampleVec2::new(0.0, 0.0),
@@ -61,9 +74,12 @@ impl Block for StereoOutput {
         self.output
     }
 }
-pub struct AudioGraphCallback {
-    pub graph: Mutex<StereoOutput>,
+pub struct AudioGraph {
+    pub output: Arc<Mutex<StereoOutput>>,
     pub sample_rate: f32,
+}
+pub struct AudioGraphCallback {
+    pub graph: AudioGraph,
 }
 
 impl AudioCallback for AudioGraphCallback {
@@ -71,27 +87,25 @@ impl AudioCallback for AudioGraphCallback {
 
     fn callback(&mut self, output_buffer: &mut [f32]) {
         for (_i, output) in output_buffer.chunks_exact_mut(2).enumerate() {
-            let mut graph_guard = self.graph.lock().unwrap();
+            let mut graph_guard = self.graph.output.lock().unwrap();
             let result = graph_guard.process();
             output[0] = result[0];
             output[1] = result[1];
         }
     }
 }
-impl AudioGraphCallback {
-    pub fn add_sine(
-        &mut self,
-        frequency: f32,
-        amplitude_dB: f32,
-        panning: f32,
-        sample_rate: Option<f32>,
-    ) {
-        let mut graph_guard = self.graph.lock().unwrap();
+impl AudioGraph {
+    pub fn add_sine(&mut self, frequency: f32, amplitude_db: f32, panning: f32) {
+        let mut graph_guard = self.output.lock().unwrap();
         // Create your sine generator block here, assuming you have a block named `SineOscillator`
         // and it can be constructed with a given frequency.
-        let sine_block = Box::new(SineOsc::new(frequency, 1.0, sample_rate));
-        let mono_to_stereo_block =
-            Box::new(MonoToStereoMix::new(sine_block, amplitude_dB, panning));
+        let sine_block: Block1DRef =
+            Box::new(SineOsc::new_fixed(frequency, 1.0f32, self.sample_rate));
+        let mono_to_stereo_block = Box::new(MonoToStereoMix::new_fixed(
+            sine_block,
+            amplitude_db,
+            panning,
+        ));
         graph_guard.blocks.push(mono_to_stereo_block);
     }
     pub fn add_naive_sawtooth(&mut self, frequency: f32, volume_db: f32, panning: f32) {
@@ -99,14 +113,14 @@ impl AudioGraphCallback {
         let mut n = 1;
 
         while (frequency * n as f32) < { self.sample_rate / 2.0 } {
-            let harmonic_volume: f32 = volume as f32 / n as f32;
+            let harmonic_volume: f32 = volume / n as f32;
             let amplitude_db: f32 = 20.0 * (harmonic_volume).log10();
-            self.add_sine(frequency * n as f32, amplitude_db, panning, None);
+            self.add_sine(frequency * n as f32, amplitude_db, panning);
             n += 1;
         }
     }
 
-    pub fn supersaw(
+    pub fn add_supersaw(
         &mut self,
         center_frequency: f32,
         variance_hz: f32,

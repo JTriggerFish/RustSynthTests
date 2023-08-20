@@ -7,5 +7,7 @@ edition = "2021"
 
 [dependencies]
 nalgebra = "0.32.3"
+optargs = "0.1.2"
 rand = "0.8.5"
+rhai = "1.15.1"
 sdl2 = {version="0.35.2", features = ["bundled"]}
